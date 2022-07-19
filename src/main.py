@@ -1,14 +1,18 @@
 from ast import keyword
 from sys import stdout
+import threading
 
 from utils import checkInputValid
-from worker import FetchManager;
+from fetchCompany import FetchManager;
 
 def main(keyword, pageNum, artwork):
   print(artwork);
   print(keyword);
   print(pageNum);
   manager = FetchManager(keyword, pageNum, artwork)
+  imageList = manager.getList();
+  
+
 
 
 stdout.write("Input the keyword:\n")

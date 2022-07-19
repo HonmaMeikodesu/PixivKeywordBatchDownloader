@@ -1,19 +1,13 @@
+from weakref import proxy
 from numpy import NaN
-import requests
+from aiohttp import ClientSession
 import os
+from const import PIXIV_HOST
 
-from utils import getListApi
+from utils import filterUnSuppportedFileName, getListApi
 
 class FetchStaff:
-  __proxy__ = None
-
-  def __init__(self):
-    PROXY = os.environ.get("PROXY")
-    if (PROXY):
-      self.__proxy__ = {
-        "http"  : PROXY, 
-        "https" : PROXY, 
-      }
+  __proxy__ = os.environ.get("PROXY")
 
 class FetchManager(FetchStaff):
   __keyword__ = None
@@ -25,14 +19,16 @@ class FetchManager(FetchStaff):
     self.__pageNum__ = pageNum
     self.__artwork__ = artwork
 
-  def getList(self):
-    res = requests.get(getListApi(self.__artwork__, self.__keyword__), proxies=self.__proxy__)
-    res = res.json()
-    imageList = res["body"]["illustManga"]["data"]
-    return map(lambda imageObj: {
-      "title": imageObj["title"],
-      "url": imageObj["url"]
-    } ,imageList or [])
+  async def getList(self):
+    async with ClientSession() as session:
+      async with session.get(getListApi(self.__artwork__, self.__keyword__), proxy=self.__proxy__) as res:
+        res = await res.json();
+        imageList = res["body"]["illustManga"]["data"]
+        imageList = list(filter(lambda imageObj: imageObj.get("title") and imageObj.get("url"), imageList))
+        return list(map(lambda imageObj: {
+          "title": imageObj["title"],
+          "url": imageObj["url"]
+        } ,imageList or []))
 
 
 class FetchWorker(FetchStaff):
@@ -42,7 +38,19 @@ class FetchWorker(FetchStaff):
   def __init__(self, title, url):
     self.__title__ = title
     self.__url__ = url
-    
-  
-  def fetchImageToLocal(self):
-    res = requests.get(self.__url__, proxies=self.__proxy__)
+
+  async def fetchToLocal(self):
+    async with ClientSession() as session:
+      headers = {'referer': f'{PIXIV_HOST}'}
+      async with session.get(self.__url__, headers=headers, proxy=self.__proxy__) as res:
+        try:
+          os.mkdir("tmp")
+        except FileExistsError:
+          pass
+        finally:
+          with open(os.path.join(".", "tmp", f"{filterUnSuppportedFileName(self.__title__)}.jpg"), "wb") as fd:
+            while True:
+              chunk = await res.content.read()
+              if not chunk:
+                  break
+              fd.write(chunk)

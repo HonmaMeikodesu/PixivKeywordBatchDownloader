@@ -1,19 +1,17 @@
 from ast import keyword
+import asyncio
 from sys import stdout
-import threading
 
 from utils import checkInputValid
 from fetchCompany import FetchManager, FetchWorker;
 
-def main(keyword, pageNum, artwork):
-  print(artwork);
-  print(keyword);
-  print(pageNum);
+async def main(keyword, pageNum, artwork):
   manager = FetchManager(keyword, pageNum, artwork)
-  imageList = manager.getList();
+  imageList = await manager.getList();
   workerList = [FetchWorker(item["title"], item["url"]) for item in imageList]
-  
-
+  taskList = [asyncio.create_task(worker.fetchToLocal()) for worker in workerList]
+  for task in taskList:
+    await task
 
 
 stdout.write("Input the keyword:\n")
@@ -28,4 +26,5 @@ artwork = artwork if len(artwork) else keyword;
 
 checkInputValid(keyword, pageNum)
 
-main(keyword, pageNum, artwork)
+asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+asyncio.run(main(keyword, pageNum, artwork))

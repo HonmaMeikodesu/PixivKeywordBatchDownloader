@@ -1,1 +1,4 @@
 __pycache__
+.vscode
+setProxy.ps1
+tmp/

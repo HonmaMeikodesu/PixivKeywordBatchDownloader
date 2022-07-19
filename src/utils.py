@@ -1,3 +1,4 @@
+import re
 from const import PIXIV_AJAX_SEARCH_URL
 
 
@@ -7,3 +8,6 @@ def checkInputValid(keyword, pageNum):
 
 def getListApi(artwork, keyword):
   return f"{PIXIV_AJAX_SEARCH_URL}/{artwork}?word={keyword}"
+
+def filterUnSuppportedFileName(fileName):
+  return re.sub(r"[\/\\\*\?\<\>\|]", "", fileName)

@@ -3,7 +3,7 @@ from sys import stdout
 import threading
 
 from utils import checkInputValid
-from fetchCompany import FetchManager;
+from fetchCompany import FetchManager, FetchWorker;
 
 def main(keyword, pageNum, artwork):
   print(artwork);
@@ -11,6 +11,7 @@ def main(keyword, pageNum, artwork):
   print(pageNum);
   manager = FetchManager(keyword, pageNum, artwork)
   imageList = manager.getList();
+  workerList = [FetchWorker(item["title"], item["url"]) for item in imageList]
   
 
 

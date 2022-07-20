@@ -7,7 +7,7 @@ def checkInputValid(keyword, pageNum):
     raise Exception("Invalid input")
 
 def getListApi(artwork, keyword, pageNum):
-  return f"{PIXIV_AJAX_SEARCH_URL}/{artwork}?word={keyword}&pageNum={pageNum}"
+  return f"{PIXIV_AJAX_SEARCH_URL}/{artwork}?word={keyword}&p={pageNum}"
 
 def filterUnSuppportedFileName(fileName):
-  return re.sub(r"[\/\\\*\?\<\>\|]", "", fileName)
+  return re.sub(r"[\/\\\*\?\<\>\|\:\"]", "", fileName)

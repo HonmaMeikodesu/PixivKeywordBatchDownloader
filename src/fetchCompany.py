@@ -1,3 +1,4 @@
+import uuid
 from numpy import NaN
 from aiohttp import ClientSession
 import os
@@ -8,7 +9,6 @@ from utils import filterUnSuppportedFileName, getListApi
 
 class FetchStaff:
   __proxy__ = os.environ.get("PROXY")
-
 class FetchManager(FetchStaff):
   __keyword__ = None
   __pageNum__ = NaN
@@ -20,23 +20,32 @@ class FetchManager(FetchStaff):
     self.__artwork__ = artwork
 
   async def lead(self):
-    async for currentPageNum in range(self.__pageNum__):
-      async with ClientSession() as session:
-        async with session.get(getListApi(self.__artwork__, self.__keyword__, currentPageNum), proxy=self.__proxy__) as res:
-          res = await res.json();
-          imageList = res["body"]["illustManga"]["data"]
-          imageList = list(filter(lambda imageObj: imageObj.get("title") and imageObj.get("url"), imageList))
-          imageList = list(map(lambda imageObj: {
-            "title": imageObj["title"],
-            "url": imageObj["url"]
-          } ,imageList or []))
-          await self.arrangeWorkers(imageList)
+    taskList = []
+    for currentPageNum in range(1, 1 + self.__pageNum__):
+    # TODO 协程过多是否会导致event loop塞不下？对下面代码进行troubleshooting
+    # TODO throttling是否必要？
+    # taskList.append(asyncio.create_task(self.hireWorkerForCurrentPage(currentPageNum)))
+    # await asyncio.gather(*taskList)
+      # 分批下载，一批下载一页
+      await self.hireWorkerForCurrentPage(currentPageNum)
 
-  async def arrangeWorkers(currentPageImageList):
+  
+  async def hireWorkerForCurrentPage(self, currentPage):
+    async with ClientSession() as session:
+      async with session.get(getListApi(self.__artwork__, self.__keyword__, currentPage), proxy=self.__proxy__) as res:
+        res = await res.json();
+        imageList = res["body"]["illustManga"]["data"]
+        imageList = list(filter(lambda imageObj: imageObj.get("title") and imageObj.get("url"), imageList))
+        imageList = list(map(lambda imageObj: {
+          "title": imageObj["title"],
+          "url": imageObj["url"]
+        } ,imageList or []))
+        await self.arrangeWorkers(imageList)
+
+  async def arrangeWorkers(self, currentPageImageList):
       workerList = [FetchWorker(item["title"], item["url"]) for item in currentPageImageList]
       taskList = [asyncio.create_task(worker.fetchToLocal()) for worker in workerList]
       await asyncio.gather(*taskList)
-
 
 class FetchWorker(FetchStaff):
   __title__ = None
@@ -55,7 +64,7 @@ class FetchWorker(FetchStaff):
         except FileExistsError:
           pass
         finally:
-          with open(os.path.join(".", "tmp", f"{filterUnSuppportedFileName(self.__title__)}.jpg"), "wb") as fd:
+          with open(os.path.join(".", "tmp", f"{filterUnSuppportedFileName(self.__title__)}_{str(uuid.uuid4())}.jpg"), "wb") as fd:
             while True:
               chunk = await res.content.read()
               if not chunk:

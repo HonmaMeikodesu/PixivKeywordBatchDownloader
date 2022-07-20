@@ -1,4 +1,3 @@
-from weakref import proxy
 from numpy import NaN
 from aiohttp import ClientSession
 import os

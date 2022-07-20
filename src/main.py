@@ -7,12 +7,7 @@ from fetchCompany import FetchManager, FetchWorker;
 
 async def main(keyword, pageNum, artwork):
   manager = FetchManager(keyword, pageNum, artwork)
-  imageList = await manager.getList();
-  workerList = [FetchWorker(item["title"], item["url"]) for item in imageList]
-  taskList = [asyncio.create_task(worker.fetchToLocal()) for worker in workerList]
-  for task in taskList:
-    await task
-
+  await manager.lead();
 
 stdout.write("Input the keyword:\n")
 keyword = input();

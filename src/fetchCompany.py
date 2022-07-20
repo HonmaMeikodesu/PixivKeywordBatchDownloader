@@ -2,6 +2,7 @@ from numpy import NaN
 from aiohttp import ClientSession
 import os
 from const import PIXIV_HOST
+import asyncio
 
 from utils import filterUnSuppportedFileName, getListApi
 
@@ -18,16 +19,23 @@ class FetchManager(FetchStaff):
     self.__pageNum__ = pageNum
     self.__artwork__ = artwork
 
-  async def getList(self):
-    async with ClientSession() as session:
-      async with session.get(getListApi(self.__artwork__, self.__keyword__), proxy=self.__proxy__) as res:
-        res = await res.json();
-        imageList = res["body"]["illustManga"]["data"]
-        imageList = list(filter(lambda imageObj: imageObj.get("title") and imageObj.get("url"), imageList))
-        return list(map(lambda imageObj: {
-          "title": imageObj["title"],
-          "url": imageObj["url"]
-        } ,imageList or []))
+  async def lead(self):
+    async for currentPageNum in range(self.__pageNum__):
+      async with ClientSession() as session:
+        async with session.get(getListApi(self.__artwork__, self.__keyword__, currentPageNum), proxy=self.__proxy__) as res:
+          res = await res.json();
+          imageList = res["body"]["illustManga"]["data"]
+          imageList = list(filter(lambda imageObj: imageObj.get("title") and imageObj.get("url"), imageList))
+          imageList = list(map(lambda imageObj: {
+            "title": imageObj["title"],
+            "url": imageObj["url"]
+          } ,imageList or []))
+          await self.arrangeWorkers(imageList)
+
+  async def arrangeWorkers(currentPageImageList):
+      workerList = [FetchWorker(item["title"], item["url"]) for item in currentPageImageList]
+      taskList = [asyncio.create_task(worker.fetchToLocal()) for worker in workerList]
+      await asyncio.gather(*taskList)
 
 
 class FetchWorker(FetchStaff):
